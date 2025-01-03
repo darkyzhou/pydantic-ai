@@ -66,6 +66,7 @@ class OpenAIModel(Model):
 
     model_name: OpenAIModelName
     client: AsyncOpenAI = field(repr=False)
+    enable_parallel_tool_calls: bool
 
     def __init__(
         self,
@@ -75,6 +76,7 @@ class OpenAIModel(Model):
         api_key: str | None = None,
         openai_client: AsyncOpenAI | None = None,
         http_client: AsyncHTTPClient | None = None,
+        enable_parallel_tool_calls: bool = True,
     ):
         """Initialize an OpenAI model.
 
@@ -90,8 +92,10 @@ class OpenAIModel(Model):
                 [`AsyncOpenAI`](https://github.com/openai/openai-python?tab=readme-ov-file#async-usage)
                 client to use. If provided, `base_url`, `api_key`, and `http_client` must be `None`.
             http_client: An existing `httpx.AsyncClient` to use for making HTTP requests.
+            enable_parallel_tool_calls: Whether to enable parallel tool calls.
         """
         self.model_name: OpenAIModelName = model_name
+        self.enable_parallel_tool_calls = enable_parallel_tool_calls
         if openai_client is not None:
             assert http_client is None, 'Cannot provide both `openai_client` and `http_client`'
             assert base_url is None, 'Cannot provide both `openai_client` and `base_url`'
@@ -118,6 +122,7 @@ class OpenAIModel(Model):
             self.model_name,
             allow_text_result,
             tools,
+            self.enable_parallel_tool_calls,
         )
 
     def name(self) -> str:
@@ -143,6 +148,7 @@ class OpenAIAgentModel(AgentModel):
     model_name: OpenAIModelName
     allow_text_result: bool
     tools: list[chat.ChatCompletionToolParam]
+    enable_parallel_tool_calls: bool
 
     async def request(
         self, messages: list[ModelMessage], model_settings: ModelSettings | None
@@ -189,7 +195,7 @@ class OpenAIAgentModel(AgentModel):
             model=self.model_name,
             messages=openai_messages,
             n=1,
-            parallel_tool_calls=True if self.tools else NOT_GIVEN,
+            parallel_tool_calls=self.enable_parallel_tool_calls if self.tools else NOT_GIVEN,
             tools=self.tools or NOT_GIVEN,
             tool_choice=tool_choice or NOT_GIVEN,
             stream=stream,
